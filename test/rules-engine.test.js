@@ -343,23 +343,21 @@ describe('RulesEngine Extended Tests', () => {
     // ---------------------------------------------------------------------------
 
     test('invalid condition schema - both type and all in same object', () => {
-        // If your compiler guards against malformed DSL, test that path
         engine.addFact({ type: 'Dummy', value: 123 });
-        engine.addRule({
-            name: 'BadDSLRule',
-            conditions: {
-                all: [
-                    // This condition is nonsense: has 'type' plus 'all' nested
-                    { type: 'Dummy', all: [{ type: 'SomethingElse' }] }
-                ]
-            },
-            action: () => {}
-        });
-
-        // Expect run or compile to throw
+        // compiler should throw an error when bad rule is added
         expect(() => {
-            engine.run();
+            engine.addRule({
+                name: 'BadDSLRule',
+                conditions: {
+                    all: [
+                        // This condition is nonsense: has 'type' plus 'all' nested
+                        { type: 'Dummy', all: [{ type: 'SomethingElse' }] }
+                    ]
+                },
+                action: () => {}
+            });
         }).toThrow();
+        engine.run();
     });
 
     test('beta test at top level (no logical operator)', () => {
@@ -403,4 +401,105 @@ describe('RulesEngine Extended Tests', () => {
         const names = fruitsUnder3.map(f => f.data.name).sort();
         expect(names).toEqual(['Apple', 'Banana']);
     });
+});
+
+test('fact retraction removes fact from memory and stops matching', () => {
+    const engine = new RulesEngine();
+    engine.addFact({ type: 'Fruit', name: 'Apple' });
+    engine.addFact({ type: 'Fruit', name: 'Banana' });
+
+    const actionSpy = jest.fn();
+
+    engine.addRule({
+        name: 'FruitRule',
+        conditions: {
+            all: [{ type: 'Fruit', test: f => f.name !== '' }]
+        },
+        action: actionSpy
+    });
+
+    engine.run();
+    // Should match Apple, Banana => 2 fires
+    expect(actionSpy).toHaveBeenCalledTimes(2);
+
+    // Now retract Banana
+    const bananaFact = engine.query('Fruit')
+        .where(f => f.name === 'Banana')
+        .execute()[0];
+    engine.removeFact(bananaFact.id);
+
+    // Re-run
+    engine.run();
+    // No new "banana" matches => only "Apple" remains
+    // The rule for Apple scenario was already fired, so no new matches
+    // => Zero new calls
+    expect(actionSpy).toHaveBeenCalledTimes(2);
+});
+
+test('updating a fact triggers new matches if not previously fired', () => {
+    const engine = new RulesEngine();
+    const itemFact = engine.addFact({ type: 'Item', status: 'draft', description: 'Test item' });
+
+    const actionSpy = jest.fn();
+
+    // Rule only matches items with status=published
+    engine.addRule({
+        name: 'PublishItem',
+        conditions: {
+            all: [{ type: 'Item', test: i => i.status === 'published' }]
+        },
+        action: actionSpy
+    });
+
+    engine.run();
+    expect(actionSpy).toHaveBeenCalledTimes(0);
+
+    // Update from 'draft' to 'published'
+    engine.updateFact(itemFact.id, { status: 'published' });
+
+    // Re-run
+    engine.run();
+    // Now it should match => fires 1 time
+    expect(actionSpy).toHaveBeenCalledTimes(1);
+});
+
+test('recency resolves conflicts when salience is equal', () => {
+    const engine = new RulesEngine();
+
+    // Two rules with the same salience
+    engine.addRule({
+        name: 'SameSalienceRule1',
+        salience: 10,
+        conditions: { all: [{ type: 'Person', test: p => p.age > 18 }] },
+        action: () => {}
+    });
+    engine.addRule({
+        name: 'SameSalienceRule2',
+        salience: 10,
+        conditions: { all: [{ type: 'Person', test: p => p.age > 18 }] },
+        action: () => {}
+    });
+
+    // Insert two people
+    const fact1 = engine.addFact({ type: 'Person', name: 'Alice', age: 20 });
+    const fact2 = engine.addFact({ type: 'Person', name: 'Bob', age: 22 });
+
+    // Update Bob to bump recency
+    engine.updateFact(fact2.id, { age: 23 });
+
+    // Collect raw matches
+    const rawAgenda = engine.collectMatches();
+
+    // Apply conflict resolution, which sorts by salience and then recency
+    const resolvedAgenda = engine.defaultConflictResolver(rawAgenda);
+
+    // Now check order
+    expect(resolvedAgenda.length).toBe(4); // Both rules match both people
+    const [first, second, third, fourth] = resolvedAgenda;
+
+    // Bob's recency is higher => his matches appear first
+    expect(first.match.facts[0].data.name).toBe('Bob');
+    expect(second.match.facts[0].data.name).toBe('Bob');
+    expect(third.match.facts[0].data.name).toBe('Alice');
+    expect(fourth.match.facts[0].data.name).toBe('Alice');
 });
