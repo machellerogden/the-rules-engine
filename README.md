@@ -2,11 +2,9 @@
 
 > A forward-chaining rules engine for JavaScript applications, offering a robust DSL, logical composition, accumulators, and conflict resolution.
 
-Below is the recommended structure for a thorough README. The goal is to give newcomers a clear path to learn, experiment, and eventually master this rules engine.
-
 ## Introduction
 
-Welcome to The Rules Engine—a powerful, forward-chaining inference engine that allows you to define rules declaratively. Each rule expresses a set of conditions on your domain data (the facts) and an action to be performed when those conditions hold true. The engine can chain these actions together, continually reacting to changes in your data until no new rules can fire. Whether you're modeling game logic, business policies, or reactive event processing, this engine aims to make complex conditional logic more maintainable.
+The Rules Engine is a powerful, forward-chaining inference engine that allows you to define rules declaratively. Each rule expresses a set of conditions on your domain data (the facts) and an action to be performed when those conditions hold true. The engine can chain these actions together, continually reacting to changes in your data until no new rules can fire. Whether you're modeling game logic, business policies, or reactive event processing, this engine aims to make complex conditional logic more maintainable.
 
 ### When and Why to Use
 
