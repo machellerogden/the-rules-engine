@@ -1,0 +1,4 @@
+lib/*.js
+examples/*.js
+test/*.js
+index.js
