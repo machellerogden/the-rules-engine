@@ -8,10 +8,10 @@ The Rules Engine is a powerful, forward-chaining inference engine that allows yo
 
 ### When and Why to Use
 
-  - Complex Decision Logic: If/else blocks get unwieldy. This engine provides structure.
-  - Forward-Chaining: Automatically re-checks rules after each change, perfect for real-time or dynamic applications.
-  - Declarative DSL: Express business/policy logic in a readable, modular format.
-  - Extensible and Customizable: Plug in your own conflict resolution strategies, aggregator functions, or specialized condition tests.
+  - **Complex Decision Logic:** If/else blocks get unwieldy. This engine provides structure.
+  - **Forward-Chaining:** Automatically re-checks rules after each change, perfect for real-time or dynamic applications.
+  - **Declarative DSL:** Express business/policy logic in a readable, modular format.
+  - **Extensible and Customizable:** Plug in your own conflict resolution strategies, aggregator functions, or specialized condition tests.
 
 ## Installation
 
@@ -73,34 +73,50 @@ That's it! The engine processes your facts against all defined rules. If a rule'
 
 ## Features
 
-  1. Declarative DSL
-     Compose conditions using all, any, not, and exists. Build complex nested condition graphs with ease.
-  2. Forward-Chaining
-     After each rule fires, new facts or updates can trigger additional rules in subsequent cycles.
-  3. Typed Facts & Working Memory
-     Facts are stored in a specialized in-memory index keyed by type, making retrieval quick.
-  4. Alpha & Beta Nodes
-     Internally, conditions are compiled into a network of alpha (type-based) and beta (cross-binding) nodes, allowing fine-grained logic.
-  5. Accumulators
-     Sum, count, or otherwise aggregate sets of matching facts and apply a final test to the aggregated result (e.g., sum > 10).
-  6. Salience & Conflict Resolution
-     Prioritize rules with numeric salience. Customize conflict resolution to determine which rules fire first when multiple matches coexist.
-  7. Safe Guardrails
-     Built-in measures prevent infinite loops by tracking fired scenarios and limiting maximum engine cycles.
-  8. Queryable Memory
-     Query facts in memory with flexible predicates and filters for post-processing or advanced logic.
+### Declarative DSL
+
+Compose conditions using all, any, not, and exists. Build complex nested condition graphs with ease.
+
+### Forward-Chaining
+
+After each rule fires, new facts or updates can trigger additional rules in subsequent cycles.
+
+### Typed Facts & Working Memory
+
+Facts are stored in a specialized in-memory index keyed by type, making retrieval quick.
+
+### Alpha & Beta Nodes
+
+Internally, conditions are compiled into a network of alpha (type-based) and beta (cross-binding) nodes, allowing fine-grained logic.
+
+### Accumulators
+
+Sum, count, or otherwise aggregate sets of matching facts and apply a final test to the aggregated result (e.g., sum > 10).
+
+### Salience & Conflict Resolution
+
+Prioritize rules with numeric salience. Customize conflict resolution to determine which rules fire first when multiple matches coexist.
+
+### Safe Guardrails
+
+Built-in measures prevent infinite loops by tracking fired scenarios and limiting maximum engine cycles.
+
+### Queryable Memory
+
+Query facts in memory with flexible predicates and filters for post-processing or advanced logic.
 
 ## Detailed Documentation
 
 This section dives deep into each component of the engine, with code snippets and conceptual explanations. We'll walk through Core Concepts, how to Work with Facts, how to Define Rules using the DSL, and more advanced features like accumulators, beta tests, and conflict resolution.
 
 ### Core Concepts
-	1.	Fact: A piece of data shaped like { type: string, ...restOfProperties }. Each fact is stored in the engine's working memory.
-	2.	Condition: A declarative statement that describes a pattern of data you want to match. Conditions can be nested logically or specify custom aggregator logic.
-	3.	Action: A function that executes when conditions are met. It can modify the working memory by adding, updating, or removing facts.
-	4.	Rule: Combines one or more conditions and an action. Optionally includes a salience for priority.
-	5.	Working Memory Indexer: Maintains an internal index of all facts, keyed by type, and tracks "dirty" or recently changed types to optimize evaluation.
-	6.	Engine Cycle: Each time you call engine.run(), the engine attempts to stabilize by repeatedly matching rules and firing actions until no further changes occur or a maximum cycle limit is reached.
+
+  - **Fact:** A piece of data shaped like `{ type: string, ...restOfProperties }`. Each fact is stored in the engine's working memory.
+  - **Condition:** A declarative statement that describes a pattern of data you want to match. Conditions can be nested logically or specify custom aggregator logic.
+  - **Action:** A function that executes when conditions are met. It can modify the working memory by adding, updating, or removing facts.
+  - **Rule:** Combines one or more conditions and an action. Optionally includes a salience for priority.
+  - **Working Memory Indexer:** Maintains an internal index of all facts, keyed by type, and tracks "dirty" or recently changed types to optimize evaluation.
+  - **Engine Cycle:** Each time you call engine.run(), the engine attempts to stabilize by repeatedly matching rules and firing actions until no further changes occur or a maximum cycle limit is reached.
 
 ### Working with Facts
 
@@ -173,33 +189,36 @@ engine.addRule({
 
 The DSL supports a variety of operators and structures, which can be nested arbitrarily:
 
-  1. Basic Condition:
+#### Basic Condition:
 
 ```js
 { type: 'Hobbit', test: h => h.age > 30 }`
 ```
-    - Matches any fact with type === 'Hobbit' whose data passes test(...).
+  - Matches any fact with type === 'Hobbit' whose data passes test(...).
 
-  2. Logical Operators:
-    - all: `[ ... ]` – All sub-conditions must match at least once (think logical AND).
-    - any: `[ ... ]` – At least one sub-condition must match (logical OR).
-    - not: `{ ... }` – Succeeds only if the nested condition has zero matches (logical NOT).
-    - exists: `{ ... }` – Succeeds if the nested condition finds at least one match.
-  3. Beta Tests:
+#### Logical Operators:
+
+  - all: `[ ... ]` – All sub-conditions must match at least once (think logical AND).
+  - any: `[ ... ]` – At least one sub-condition must match (logical OR).
+  - not: `{ ... }` – Succeeds only if the nested condition has zero matches (logical NOT).
+  - exists: `{ ... }` – Succeeds if the nested condition finds at least one match.
+
+#### Beta Tests:
 
 ```js
 { test: (facts, bindings) => { ... } }
 ```
 
-    - Used to filter or cross-check after variable bindings.
-    - Receives the current partial match's facts and bindings.
-  4. Variable Binding:
+  - Used to filter or cross-check after variable bindings.
+  - Receives the current partial match's facts and bindings.
+
+#### Variable Binding:
 
 ```js
 { var: 'p', type: 'Person', test: p => p.age > 18 }
 ```
 
-    - Binds the matched fact as bindings.p.
+  - Binds the matched fact as bindings.p.
 
 #### Example with multiple logical layers:
 
