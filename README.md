@@ -15,8 +15,6 @@ The Rules Engine is a powerful, forward-chaining inference engine that allows yo
 
 ## Installation
 
-> Note: If you have not published the engine to npm yet, replace the instructions below with your local or Git-based installation instructions.
-
 ```sh
 npm install the-rules-engine
 ```
