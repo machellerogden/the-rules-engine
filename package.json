@@ -1,6 +1,6 @@
 {
   "name": "the-rules-engine",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "A flexible, forward-chaining rules engine for JavaScript applications.",
   "type": "module",
   "main": "index.js",
