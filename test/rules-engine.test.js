@@ -434,6 +434,8 @@ test('fact retraction removes fact from memory and stops matching', () => {
     // The rule for Apple scenario was already fired, so no new matches
     // => Zero new calls
     expect(actionSpy).toHaveBeenCalledTimes(2);
+    const remaining = engine.query('Fruit').execute();
+    expect(remaining.map(f => f.data.name)).toEqual(['Apple']);
 });
 
 test('updating a fact triggers new matches if not previously fired', () => {

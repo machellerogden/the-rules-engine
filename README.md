@@ -190,7 +190,7 @@ The DSL supports a variety of operators and structures, which can be nested arbi
 #### Basic Condition:
 
 ```js
-{ type: 'Hobbit', test: h => h.age > 30 }`
+{ type: 'Hobbit', test: h => h.age > 30 }
 ```
   - Matches any fact with type === 'Hobbit' whose data passes test(...).
 
