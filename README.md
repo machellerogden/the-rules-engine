@@ -40,6 +40,8 @@ import { RulesEngine } from 'the-rules-engine';
 
 // Step 1: Create an engine
 const engine = new RulesEngine();
+// Or with custom options:
+// const engine = new RulesEngine({ maxCycles: 50, trace: true });
 
 // Step 2: Insert facts
 engine.addFact({ type: 'Person', name: 'Alice', age: 30 });
@@ -115,6 +117,22 @@ This section dives deep into each component of the engine, with code snippets an
   - **Rule:** Combines one or more conditions and an action. Optionally includes a salience for priority.
   - **Working Memory Indexer:** Maintains an internal index of all facts, keyed by type, and tracks "dirty" or recently changed types to optimize evaluation.
   - **Engine Cycle:** Each time you call engine.run(), the engine attempts to stabilize by repeatedly matching rules and firing actions until no further changes occur or a maximum cycle limit is reached.
+
+### Engine Configuration
+
+The RulesEngine constructor accepts an options object:
+
+```js
+const engine = new RulesEngine({
+  maxCycles: 50,  // Maximum number of rule execution cycles (default: 100)
+  trace: true     // Enable execution tracing for debugging (default: false)
+});
+```
+
+#### Options:
+
+  - **maxCycles** (number): Sets the maximum number of cycles the engine will run before throwing an error to prevent infinite loops. Default is 100.
+  - **trace** (boolean): When true, the engine tracks detailed execution information that can be retrieved via `engine.getExecutionTrace()`. Default is false.
 
 ### Working with Facts
 
@@ -336,7 +354,7 @@ If you omit type, you'll query all facts in working memory.
 
 ### Keeping the Engine Stable
 
-  - Maximum Cycles: The engine halts after a predefined max number of cycles (default 100) to avoid infinite loops.
+  - Maximum Cycles: The engine halts after a configurable maximum number of cycles (default 100, customizable via `maxCycles` option) to avoid infinite loops.
   - Fired History: Once a specific rule/fact scenario has fired, it's not fired again unless the facts are modified in a way that changes the scenario.
   - Dirty Type Optimization: The engine tracks which fact types have changed since the last cycle, skipping alpha evaluation for types that are not dirty (unless the rule references no types or uses purely Beta tests).
 
