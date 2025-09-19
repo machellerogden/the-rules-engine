@@ -505,3 +505,250 @@ test('recency resolves conflicts when salience is equal', () => {
     expect(third.match.facts[0].data.name).toBe('Alice');
     expect(fourth.match.facts[0].data.name).toBe('Alice');
 });
+
+// ---------------------------------------------------------------------------
+// Negation with type-only conditions tests
+// ---------------------------------------------------------------------------
+
+describe('Negation with type-only conditions', () => {
+    test('not with type-only fires when no facts exist', () => {
+        const engine = new RulesEngine();
+        const actionSpy = jest.fn();
+        
+        engine.addRule({
+            name: 'NotTypeOnly',
+            conditions: { not: { type: 'Missing' } },
+            action: actionSpy
+        });
+        
+        engine.run();
+        expect(actionSpy).toHaveBeenCalledTimes(1);
+    });
+    
+    test('not with type-only does not fire when fact exists', () => {
+        const engine = new RulesEngine();
+        const actionSpy = jest.fn();
+        
+        engine.addRule({
+            name: 'NotTypeOnly',
+            conditions: { not: { type: 'Present' } },
+            action: actionSpy
+        });
+        
+        engine.addFact({ type: 'Present', value: 1 });
+        engine.run();
+        expect(actionSpy).toHaveBeenCalledTimes(0);
+    });
+    
+    test('not any with type-only conditions', () => {
+        const engine = new RulesEngine();
+        const actionSpy = jest.fn();
+        
+        engine.addRule({
+            name: 'NotAnyTypes',
+            conditions: { 
+                not: { 
+                    any: [
+                        { type: 'TypeA' },
+                        { type: 'TypeB' }
+                    ]
+                }
+            },
+            action: actionSpy
+        });
+        
+        // Should fire when neither type exists
+        engine.run();
+        expect(actionSpy).toHaveBeenCalledTimes(1);
+        
+        // Reset and add TypeA
+        actionSpy.mockClear();
+        engine.addFact({ type: 'TypeA', value: 1 });
+        engine.run();
+        expect(actionSpy).toHaveBeenCalledTimes(0);
+    });
+    
+    test('not exists with type-only condition', () => {
+        const engine = new RulesEngine();
+        const actionSpy = jest.fn();
+        
+        engine.addRule({
+            name: 'NotExistsType',
+            conditions: { 
+                not: { 
+                    exists: { type: 'Target' }
+                }
+            },
+            action: actionSpy
+        });
+        
+        // Should fire when type doesn't exist
+        engine.run();
+        expect(actionSpy).toHaveBeenCalledTimes(1);
+        
+        // Reset and add Target fact
+        actionSpy.mockClear();
+        engine.addFact({ type: 'Target', value: 1 });
+        engine.run();
+        expect(actionSpy).toHaveBeenCalledTimes(0);
+    });
+    
+    test('complex rule with multiple not conditions', () => {
+        const engine = new RulesEngine();
+        const actionSpy = jest.fn();
+        
+        engine.addRule({
+            name: 'ComplexNot',
+            conditions: { 
+                all: [
+                    { not: { type: 'Forbidden1' } },
+                    { not: { type: 'Forbidden2' } },
+                    { type: 'Required' }
+                ]
+            },
+            action: actionSpy
+        });
+        
+        // No Required fact, should not fire
+        engine.run();
+        expect(actionSpy).toHaveBeenCalledTimes(0);
+        
+        // Add Required fact, should fire
+        engine.addFact({ type: 'Required', value: 1 });
+        engine.run();
+        expect(actionSpy).toHaveBeenCalledTimes(1);
+        
+        // Add Forbidden1, should not fire anymore
+        actionSpy.mockClear();
+        engine.addFact({ type: 'Forbidden1', value: 1 });
+        engine.run();
+        expect(actionSpy).toHaveBeenCalledTimes(0);
+    });
+    
+    test('not rule fires with unrelated facts in working memory', () => {
+        const engine = new RulesEngine();
+        const actionSpy = jest.fn();
+
+        engine.addRule({
+            name: 'NotSpecificType',
+            conditions: { not: { type: 'Specific' } },
+            action: actionSpy
+        });
+
+        // Add unrelated facts
+        engine.addFact({ type: 'Other', value: 1 });
+        engine.addFact({ type: 'Another', value: 2 });
+
+        engine.run();
+        expect(actionSpy).toHaveBeenCalledTimes(1);
+    });
+
+    // ---------------------------------------------------------------------------
+    // Bug Test: Accumulator re-evaluation issue
+    // ---------------------------------------------------------------------------
+
+    test('incremental accumulator DSL with reduce/retract functions', () => {
+        const engine = new RulesEngine();
+        let fireCount = 0;
+        let lastResult = null;
+
+        engine.addRule({
+            name: 'incremental-sum',
+            conditions: {
+                type: 'Value',
+                accumulate: {
+                    initial: () => ({ sum: 0, count: 0 }),
+                    reduce: (state, fact) => {
+                        state.sum += fact.data.amount;
+                        state.count++;
+                        return state;
+                    },
+                    convert: state => ({ total: state.sum, items: state.count }),
+                    test: result => result.total > 0
+                }
+            },
+            action: (facts, engine) => {
+                fireCount++;
+                // The accumulator result is available in the match
+                lastResult = facts.length;
+            }
+        });
+
+        engine.addFact({ type: 'Value', amount: 10 });
+        engine.addFact({ type: 'Value', amount: 20 });
+
+        engine.run();
+
+        expect(fireCount).toBe(1);
+        expect(lastResult).toBe(2);
+
+        // Add more facts and run again
+        engine.addFact({ type: 'Value', amount: 30 });
+        engine.run();
+
+        // Should fire again with new facts
+        expect(fireCount).toBe(2);
+    });
+
+    test('accumulator fires multiple times as facts change', () => {
+        const engine = new RulesEngine();
+        let accumulatorFireCount = 0;
+        const firings = [];
+
+        // Rule that adds new facts during execution
+        engine.addRule({
+            name: 'enrich-items',
+            salience: -10,
+            conditions: {
+                type: 'Item',
+                test: item => !item.enriched
+            },
+            action: (facts, engine) => {
+                facts.forEach(f => {
+                    engine.addFact({
+                        type: 'Item',
+                        name: f.data.name,
+                        enriched: true
+                    });
+                });
+            }
+        });
+
+        // Accumulator rule - fires multiple times as facts change
+        engine.addRule({
+            name: 'count-all-items',
+            salience: -20,
+            conditions: {
+                type: 'Item',
+                accumulate: {
+                    aggregator: facts => facts,
+                    test: items => items.length > 0
+                }
+            },
+            action: (facts, engine) => {
+                accumulatorFireCount++;
+                firings.push({
+                    fireNumber: accumulatorFireCount,
+                    factCount: facts.length,
+                    factIds: facts.map(f => f.id).sort()
+                });
+            }
+        });
+
+        // Add initial facts
+        engine.addFact({ type: 'Item', name: 'A' });
+        engine.addFact({ type: 'Item', name: 'B' });
+
+        // Single run() call
+        engine.run();
+
+        // Accumulator fires multiple times as facts change
+        // First with initial facts, then with all facts after enrichment
+        expect(accumulatorFireCount).toBe(2);
+        expect(firings).toHaveLength(2);
+        // First firing: sees initial 2 facts
+        expect(firings[0].factCount).toBe(2);
+        // Second firing: sees all 4 facts (original + enriched)
+        expect(firings[1].factCount).toBe(4);
+    });
+});

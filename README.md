@@ -216,7 +216,7 @@ The DSL supports a variety of operators and structures, which can be nested arbi
 
   - all: `[ ... ]` – All sub-conditions must match at least once (think logical AND).
   - any: `[ ... ]` – At least one sub-condition must match (logical OR).
-  - not: `{ ... }` – Succeeds only if the nested condition has zero matches (logical NOT).
+  - not: `{ ... }` – Succeeds only if the nested condition has zero matches (logical NOT). **See performance note below.**
   - exists: `{ ... }` – Succeeds if the nested condition finds at least one match.
 
 #### Beta Tests:
@@ -283,8 +283,9 @@ engine.removeFact(someFact.id);
 
 ### Accumulators
 
-Accumulators let you gather facts matched by a single alpha node, aggregate them (e.g., count, sum, max), and run a final test on the result.
+Accumulators let you gather facts matched by a single alpha node, aggregate them (e.g., count, sum, max), and run a final test on the result. The engine supports two accumulator styles:
 
+#### Simple Aggregators (Original Style)
 ```js
 {
   type: 'Person',
@@ -298,6 +299,50 @@ Accumulators let you gather facts matched by a single alpha node, aggregate them
 
   - Here, the rule only matches if three or more Person-type facts exist where age > 18.
   - Built-in aggregators exist for counting, summation, and maximum. You can write your own aggregator function.
+  - Simple aggregators reprocess all matching facts on each evaluation.
+
+#### Incremental Aggregators
+For better performance with large fact sets, you can use incremental aggregators that only process changes:
+
+```js
+{
+  type: 'Transaction',
+  accumulate: {
+    initial: () => ({ sum: 0, count: 0 }),        // Initial state
+    reduce: (state, fact) => {                    // Add a fact
+      state.sum += fact.data.amount;
+      state.count++;
+      return state;
+    },
+    retract: (state, fact) => {                   // Remove a fact (optional)
+      state.sum -= fact.data.amount;
+      state.count--;
+      return state;
+    },
+    convert: state => state.sum / state.count,    // Transform for test
+    test: avg => avg > 100                        // Test the result
+  }
+}
+```
+
+  - `initial`: Creates the initial accumulator state
+  - `reduce`: Processes each new fact incrementally
+  - `retract`: Handles fact removal (optional, for future use)
+  - `convert`: Transforms the state before testing (optional, defaults to identity)
+  - `test`: Tests whether the accumulation should trigger the rule
+
+Built-in incremental helpers are available:
+```js
+import { incrementalCount, incrementalSum, incrementalMax } from 'the-rules-engine/lib/aggregators.js';
+
+// Use like:
+accumulate: {
+  ...incrementalSum('amount'),
+  test: sum => sum > 1000
+}
+```
+
+Both styles are fully supported and backward compatible. Use simple aggregators for clarity and incremental aggregators for performance with large datasets.
 
 ### Beta Tests and Variable Cross-Referencing
 
@@ -357,6 +402,48 @@ If you omit type, you'll query all facts in working memory.
   - Maximum Cycles: The engine halts after a configurable maximum number of cycles (default 100, customizable via `maxCycles` option) to avoid infinite loops.
   - Fired History: Once a specific rule/fact scenario has fired, it's not fired again unless the facts are modified in a way that changes the scenario.
   - Dirty Type Optimization: The engine tracks which fact types have changed since the last cycle, skipping alpha evaluation for types that are not dirty (unless the rule references no types or uses purely Beta tests).
+
+### Performance Note: Negation (`not` operator)
+
+The `not` operator works correctly with type-only conditions (e.g., `{ not: { type: 'Error' } }`), but has performance implications:
+
+**Important:** Rules containing ANY `not` operator are evaluated on every cycle, bypassing the dirty type optimization. This is necessary because the absence of facts is semantically meaningful for negation.
+
+**Performance Impact Example:**
+```js
+// This rule will be evaluated EVERY cycle, even if no Entity facts change:
+{
+  conditions: {
+    any: [
+      { not: { type: 'Entity', test: e => e.expired } },  // Has NOT
+      { type: 'Entity', test: e => e.active }             // Regular condition
+    ]
+  }
+}
+```
+
+**Best Practices to Avoid Negation:**
+
+1. **Use Positive State Flags:**
+   ```js
+   // Instead of: { not: { type: 'Error' } }
+   // Use: { type: 'SystemStatus', test: s => s.healthy === true }
+   ```
+
+2. **Model Exclusive States Explicitly:**
+   ```js
+   // Instead of: { not: { type: 'Processing' } }
+   // Use: { type: 'JobStatus', test: j => j.state === 'idle' }
+   ```
+
+3. **Use Sentinel Facts:**
+   ```js
+   // When all enemies are defeated, add:
+   engine.addFact({ type: 'GameState', allEnemiesDefeated: true });
+   // Rule uses: { type: 'GameState', test: g => g.allEnemiesDefeated }
+   ```
+
+By modeling system state explicitly rather than checking for absence, you maintain better performance while making your rules more explicit about their intent.
 
 ## Example Projects
 

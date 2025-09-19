@@ -158,6 +158,8 @@ engine.addRule({
                 accumulate: {
                     aggregator: sumAggregator('vehicleCount'),
                     test: sum => sum > 250
+                    // Note: For large datasets, consider using incrementalSum('vehicleCount')
+                    // from lib/aggregators.js for better performance
                 }
             }
         ]
