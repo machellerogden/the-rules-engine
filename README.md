@@ -333,16 +333,36 @@ For better performance with large fact sets, you can use incremental aggregators
 
 Built-in incremental helpers are available:
 ```js
-import { incrementalCount, incrementalSum, incrementalMax } from 'the-rules-engine/lib/aggregators.js';
+import { incrementalCount, incrementalSum, incrementalMax, collectAll } from 'the-rules-engine/lib/aggregators.js';
 
-// Use like:
+// Bind aggregated values using 'var'
+{
+  type: 'Order',
+  var: 'totalAmount',  // Binds the sum to bindings.totalAmount
+  accumulate: incrementalSum('amount')
+}
+
+// Access in action via bindings
+action: (facts, engine, bindings) => {
+  console.log(`Total: ${bindings.totalAmount}`);
+}
+
+// Available aggregators:
+accumulate: incrementalSum('amount')  // Sum a numeric field
+accumulate: incrementalCount()        // Count facts
+accumulate: incrementalMax('score')   // Find maximum value
+accumulate: collectAll()              // Collect all matching facts
+
+// Override test if needed:
 accumulate: {
   ...incrementalSum('amount'),
-  test: sum => sum > 1000
+  test: sum => sum > 1000  // Only fire if sum > 1000
 }
 ```
 
-Both styles are fully supported and backward compatible. Use simple aggregators for clarity and incremental aggregators for performance with large datasets.
+**Note**: Accumulator rules fire whenever their aggregated value changes and passes the test condition. If facts are added over multiple cycles, the accumulator may fire multiple times. Design your actions to handle this (e.g., use flags to track processing or ensure idempotent operations).
+
+Both simple and incremental aggregator styles are fully supported. Use simple aggregators for clarity and incremental aggregators for performance with large datasets.
 
 ### Beta Tests and Variable Cross-Referencing
 
