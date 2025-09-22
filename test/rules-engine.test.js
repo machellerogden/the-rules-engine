@@ -226,7 +226,8 @@ describe('RulesEngine Extended Tests', () => {
                         type: 'Person',
                         test: p => p.age > 200,  // impossible
                         accumulate: {
-                            aggregator: facts => facts.length,
+                            initial: () => 0,
+                            reduce: (count) => count + 1,
                             test: count => count > 0
                         }
                     }
@@ -253,14 +254,14 @@ describe('RulesEngine Extended Tests', () => {
                     {
                         type: 'Log',
                         accumulate: {
-                            aggregator: logs => {
-                                // Return the earliest date
-                                if (logs.length === 0) return null;
-                                return logs.reduce((earliest, log) =>
-                                    log.data.date < earliest ? log.data.date : earliest,
-                                    logs[0].data.date
-                                );
+                            initial: () => ({ earliest: null }),
+                            reduce: (state, log) => {
+                                if (state.earliest === null || log.data.date < state.earliest) {
+                                    state.earliest = log.data.date;
+                                }
+                                return state;
                             },
+                            convert: state => state.earliest,
                             test: d => d && d.getUTCFullYear() === 2021
                         }
                     }
@@ -721,7 +722,12 @@ describe('Negation with type-only conditions', () => {
             conditions: {
                 type: 'Item',
                 accumulate: {
-                    aggregator: facts => facts,
+                    initial: () => ({ items: [] }),
+                    reduce: (state, fact) => {
+                        state.items.push(fact);
+                        return state;
+                    },
+                    convert: state => state.items,
                     test: items => items.length > 0
                 }
             },

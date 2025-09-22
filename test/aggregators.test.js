@@ -9,6 +9,31 @@ describe('Aggregator Tests', () => {
         engine = new RulesEngine();
     });
 
+    it('should return empty array with collectAll when no facts exist', () => {
+        let collectedFacts = null;
+        let ruleFired = false;
+
+        engine.addRule({
+            name: 'collect-all-products',
+            conditions: {
+                type: 'Product',
+                var: 'allProducts',
+                accumulate: collectAll()
+            },
+            action: (facts, engine, bindings) => {
+                ruleFired = true;
+                collectedFacts = bindings.allProducts;
+            }
+        });
+
+        // Run with no Product facts
+        engine.run();
+
+        expect(ruleFired).toBe(true);
+        expect(Array.isArray(collectedFacts)).toBe(true);
+        expect(collectedFacts).toHaveLength(0);
+    });
+
     it('should work with collectAll aggregator and var binding', () => {
         let collectedFacts = null;
 

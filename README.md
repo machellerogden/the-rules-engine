@@ -283,26 +283,7 @@ engine.removeFact(someFact.id);
 
 ### Accumulators
 
-Accumulators let you gather facts matched by a single alpha node, aggregate them (e.g., count, sum, max), and run a final test on the result. The engine supports two accumulator styles:
-
-#### Simple Aggregators (Original Style)
-```js
-{
-  type: 'Person',
-  test: p => p.age > 18,
-  accumulate: {
-    aggregator: facts => facts.length,   // or sumAggregator(attr), maxAggregator(attr), etc.
-    test: count => count >= 3
-  }
-}
-```
-
-  - Here, the rule only matches if three or more Person-type facts exist where age > 18.
-  - Built-in aggregators exist for counting, summation, and maximum. You can write your own aggregator function.
-  - Simple aggregators reprocess all matching facts on each evaluation.
-
-#### Incremental Aggregators
-For better performance with large fact sets, you can use incremental aggregators that only process changes:
+Accumulators let you gather facts matched by a single alpha node, aggregate them (e.g., count, sum, max), and run a final test on the result. Accumulators use an incremental approach that only processes changes:
 
 ```js
 {
@@ -329,7 +310,7 @@ For better performance with large fact sets, you can use incremental aggregators
   - `reduce`: Processes each new fact incrementally
   - `retract`: Handles fact removal (optional, for future use)
   - `convert`: Transforms the state before testing (optional, defaults to identity)
-  - `test`: Tests whether the accumulation should trigger the rule
+  - `test`: Tests whether the accumulation should trigger the rule (optional, defaults to always true)
 
 Built-in incremental helpers are available:
 ```js
@@ -351,7 +332,7 @@ action: (facts, engine, bindings) => {
 accumulate: incrementalSum('amount')  // Sum a numeric field
 accumulate: incrementalCount()        // Count facts
 accumulate: incrementalMax('score')   // Find maximum value
-accumulate: collectAll()              // Collect all matching facts
+accumulate: collectAll()              // Collect all matching facts (returns empty array if no facts exist)
 
 // Override test if needed:
 accumulate: {
@@ -361,8 +342,6 @@ accumulate: {
 ```
 
 **Note**: Accumulator rules fire whenever their aggregated value changes and passes the test condition. If facts are added over multiple cycles, the accumulator may fire multiple times. Design your actions to handle this (e.g., use flags to track processing or ensure idempotent operations).
-
-Both simple and incremental aggregator styles are fully supported. Use simple aggregators for clarity and incremental aggregators for performance with large datasets.
 
 ### Beta Tests and Variable Cross-Referencing
 

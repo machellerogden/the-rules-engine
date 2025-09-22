@@ -1,5 +1,5 @@
 import { RulesEngine } from '../lib/rules-engine.js';
-import { sumAggregator, maxAggregator } from '../lib/aggregators.js';
+import { incrementalSum, incrementalMax } from '../lib/aggregators.js';
 
 /**
  * Generate Intersections with random accident/brokenLight flags lazily using a generator function.
@@ -156,10 +156,8 @@ engine.addRule({
             {
                 type: 'Intersection',
                 accumulate: {
-                    aggregator: sumAggregator('vehicleCount'),
+                    ...incrementalSum('vehicleCount'),
                     test: sum => sum > 250
-                    // Note: For large datasets, consider using incrementalSum('vehicleCount')
-                    // from lib/aggregators.js for better performance
                 }
             }
         ]
@@ -179,7 +177,7 @@ engine.addRule({
             {
                 type: 'Intersection',
                 accumulate: {
-                    aggregator: maxAggregator('vehicleCount'),
+                    ...incrementalMax('vehicleCount'),
                     test: maxVal => maxVal > 80
                 }
             }

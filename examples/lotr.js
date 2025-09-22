@@ -84,7 +84,8 @@ engine.addRule({
         type: 'FellowshipMember',
         test: m => true,
         accumulate: {
-          aggregator: fellows => fellows.length,
+          initial: () => 0,
+          reduce: (count) => count + 1,
           test: count => count > 0
         }
       }
